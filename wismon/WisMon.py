@@ -164,9 +164,9 @@ class WisMon(object):
             req = urllib2.urlopen(self.config.get('monitor', 'dissemination_url'))
             dissemination_status = True if 200 <= req.getcode() < 300 else False
 
-            monitor_json.metric_services(oai_pmh=oai_status,
-                                         catalogue=catalogue_status,
-                                         distribution_system=dissemination_status)
+            monitor_json.metric_services(oai_pmh={'status': oai_status},
+                                         catalogue={'status': catalogue_status},
+                                         distribution_system={'status': dissemination_status})
 
             monitor_json.gisc_properties(
                 catalogue_url=self.config.get('monitor', 'catalogue_url'),
