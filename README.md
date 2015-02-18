@@ -1,13 +1,14 @@
 # OpenWIS Monitoring Tool for WMO Common Dashboard Pilot
 
 ## Introduction
-The WMO Common Dashboard (WCD) pilot project requires each participating centres to
-provide three JSON files containing messages with a format conforming to the
-spec. The three JSON files are `monitor.json`, `centres.json` and `events.json`. 
+The WMO Common Dashboard (WCD) pilot project requires each participating centre
+to provide three JSON files containing messages with a format conforming to the
+spec. 
+The three JSON files are `monitor.json`, `centres.json` and `events.json`. 
 
 The OpenWIS Monitoring Tool (`wismon`) is a command line utility that helps
 creating the necessary JSON files to feed the WCD pilot.
-Though majority part of the JSON messages are optional except three metric
+Though majority part of the metrics are optional except three
 elements in `monitor.json`, the tool generates all three JSON files with all
 elements to maximize contributions from OpenWIS centres.
 
@@ -31,18 +32,20 @@ A privileged account is NOT required for installation.
 
 ### With Python setuptools
 1. Download and extract the source code
-2. On a terminal, navigate into the source code folder, e.g. `cd /Path_To_Extraction/wismon`
+2. On a terminal, navigate into the source code folder, 
+   e.g. `cd /Path_To_Extraction/wismon`
 3. Type `python setup.py install`
     * If install with an unprivileged account, type `python setupt.py install
-      --user` to install with user scheme (i.e. it installs everything under
+      --user` to install using user scheme (i.e. it installs everything under
       `~/.local/` on Linux)
 4. To check whether the installation is successful, type and run `wismon -h`
    and it should display help messages.
-    * If installed with user scheme, the full path may be required to call the
+    * If installed using user scheme, the full path may be required to call the
       command, such as `~/.local/bin/wismon -h`
 
 ### Manual Installation
-For manual installation, users have to manually install following dependencies:
+For manual installation, users have to manually install following two
+pure-Python modules as dependencies:
 
 * [`pg8000`](https://pypi.python.org/pypi/pg8000) to interface
   OpenWIS Postgres database. Latest release (1.10.1) is required.
@@ -54,11 +57,11 @@ For manual installation, users have to manually install following dependencies:
 The `wismon` tool itself is also a Python module that needs to be installed
 manually after above dependencies are satisfied. 
 
-Manual installation of pure-Python modules really is just copying the module
-folder into system's `PYTHONPATH`. If `PYTHONPATH` is not defined, it can be
-added as `export PYTHONPATH=/home/foo/pylibs`. 
+Manual installation of pure-Python modules really is just about copying the
+module folder into system's `PYTHONPATH`. If `PYTHONPATH` is not defined, it
+can be added as `export PYTHONPATH=/home/foo/pylibs`. 
 The modules can then be placed inside `/home/foo/pylibs` as shown in following
-structure:
+folder structure:
 
 ```
 /home/foo/pylibs/
@@ -69,7 +72,7 @@ structure:
     |-- __init__.py
     `-- ...
 ```
-Note that **MODULE_FOLDER** is the **nested folder** in the module source tree
+Note that MODULE_FOLDER is the **nested folder** in the module source tree
 after extraction, **NOT the topmost folder** that contains all source files
 (these two folders often have the same name). For an example, the folder
 structure of the `wismon` module after extraction is as follows:
@@ -92,7 +95,7 @@ Once installed, type and run `python -m wismon -h` or
 `python -m wismon.__main__ -h` (Python 2.6) 
 and ensure help messages are displayed. To avoid typing the long command
 repetitively, an **alias** can be created such as 
-`alias wismon="python -m wismon`.
+`alias wismon="python -m wismon"`.
 
 The term `wismon` will be used hereafter to refer both the script installed
 by setuptools and the alias created via manual installation.
@@ -105,8 +108,8 @@ wismon -d PATH_TO_WORKING_DIRECTORY [-l] SUB-COMMAND [OPTIONS]
 ```
 Users can always type `wismon -h` to display built-in help messages.
 
-* `PATH_TO_WORKING_DIRECTORY` is the directory where input configuration file is
-  read and output files (JSON files, log files etc.) are stored. 
+* `PATH_TO_WORKING_DIRECTORY` is the directory where input configuration file
+  is read and output files (JSON files, log files etc.) are stored. 
     - The configuration file contains OpenWIS Postgres database account
       information and metadata about WIS monitoring. Detailed instruction for
       setting up the working directory can be found in the [Setup](#setup)
@@ -135,6 +138,9 @@ Users can always type `wismon -h` to display built-in help messages.
           (default is `monitor`)
     - `json-del` - Delete JSON messages of the given Date
         * It deletes all three JSON messages for the given Date
+        * It only deletes entries in the local SQLite database and does NOT
+          remove the JSON files (since the given Date may not be the present day
+          whose data the JSON files are always based on).
     - `event-add` - Add an event by specifying its title and start/end datetime
         * When `json-gen`runs, it searches for events that are in range of the
           present day and adds them to `events.json`.
@@ -175,7 +181,7 @@ perform the day-to-day monitoring task.
       ```
       00 00 * * * python -m wismon -d PATH_TO_WORKING_DIRECTORY json-gen
       ```
-      For Python 2.6, append the file name to the module:
+      For Python 2.6, append the object name to the module:
 
       ```
       00 00 * * * python -m wismon.__main__ -d PATH_TO_WORKING_DIRECTORY json-gen
@@ -186,8 +192,8 @@ perform the day-to-day monitoring task.
     * To initialize a working directory, type and run 
       `wismon -d PATH_TO_WORKING_DIRECTORY init`. 
       This command creates the given directory (if not exists already) and
-      initialise it with a template of the configuration file and required folder
-      structure as follows:
+      initialise it with a **template** of the configuration file and required
+      folder structure as follows:
 
       ```
       WORKING_DIRECTORY/
@@ -229,7 +235,14 @@ internally.
   run is under one minute.
     - Detailed time information is available in the log files.
     - Number of metadata changes are calculated by comparing today's snapshot
-      against snapshot from the previous day.
+      against the **previoius snapshot**.
+    - Note that the previous snapshot is often the one from the previous day (24
+      hours apart if a Crob job runs normally). However it is not the case when
+      `json-del` is used. For an example, JSON files are already generated for
+      the day, i.e. `json-gen` has run once and the snapshot is taken.
+      When `json-del` runs, it deletes only the JSON messages, NOT the snapshot.
+      When `json-gen` runs again after `json-del`, the previous snapshot is the
+      one taken by the first run of `json-gen`, hence NOT from the previous day.
 * List of files
     - `db.py` - It defines all the SQL queries needed for monitoring and also
       handles the connections to OpenWIS and `wismon` local database. 
