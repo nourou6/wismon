@@ -182,13 +182,14 @@ rmdcn=
 # if no entry is provided in this section.
 # List centre names and regex patterns corresponding to their metadata urns
 # i.e. Centre_Name=URN_REGEX_PATTERNS
-# Please note that whitespaces are NOT allowed in centre names.
-# The regex patterns can be separated by whitespace if there are more than
-# one patterns such as the follows:
-#   centre_name=^urn.*XYZ$ ^urn.*ABC$
-# Since urn cannot contain spaces, it is safe to separate them with whitespace.
-# Following example shows the metadata records originated from Australia and
-# Fiji:
+#
+# Since urn cannot contain spaces, it is safe to separate them with whitespace
+# if there are more than one such as the follows:
+#   centre_name=^urn.*XYZ$    ^urn.*ABC$
+#
+# The following are a few more examples to show centre definitions:
+#
 #   Australia=^urn:x-wmo:md:int.wmo.wis::.*(AMMC|ABRF|ADRM|APRF|AMRF)$
 #   Fiji=^urn:x-wmo:md:int.wmo.wis::.*(NFFN|NFNA)$
+#   Auckland - New Zealand=^urn:x-wmo:md:int.wmo.wis::.*NZAK$
 """
