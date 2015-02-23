@@ -27,7 +27,7 @@ OpenWIS log files.
 The tool requires **Python version 2.6 or 2.7**.
 Installation can be handled automatically by Python
 [setuptools](https://pypi.python.org/pypi/setuptools/) (easy and recommended)
-or users can manually install it by copy a handful of files.
+or users can manually install it by copying a handful of files.
 A privileged account is NOT required for installation.
 
 ### With Python setuptools
@@ -222,35 +222,35 @@ This section provides some more explanations about how `wismon` works
 internally. 
 
 * To calculate monitoring stats, especially the numeric ones, `wismon` needs to
-  send **one** query the OpenWIS database and save the results as a snapshot
+  send **one** query to the OpenWIS database and save the results as a snapshot
   into local SQLite database for further calculations. 
 * The query to OpenWIS database only runs when performing the `json-gen`
   sub-command. Normally it runs only every 24 hours. The query 
   finishes in 10 - 20 seconds from establishing the connection and
   disconnecting from the server. Therefore, it should have very minimal
-  performance impact to OpenWIS system.
+  performance impact on the OpenWIS system.
 * The statistics are calculated using the snapshot saved in the local SQLite
   database. Hence this calculation dot not affect OpenWIS system at all. It
-  takes 30-40 seconds to finish. So the time needed for an complete `json-gen`
-  run is under one minute.
+  takes 30-40 seconds to finish. So the total time needed for an complete
+  `json-gen` run is under one minute.
     - Detailed time information is available in the log files.
     - Number of metadata changes are calculated by comparing today's snapshot
       against the **previoius snapshot**.
     - Note that the previous snapshot is often the one from the previous day (24
       hours apart if a Crob job runs normally). However it is not the case when
-      `json-del` is used. For an example, JSON files are already generated for
+      `json-del` is used. For an example, if JSON files are already generated for
       the day, i.e. `json-gen` has run once and the snapshot is taken.
       When `json-del` runs, it deletes only the JSON messages, NOT the snapshot.
       When `json-gen` runs again after `json-del`, the previous snapshot is the
       one taken by the first run of `json-gen`, hence NOT from the previous day.
 * List of files
-    - `db.py` - It defines all the SQL queries needed for monitoring and also
+    - `db.py` - It defines the SQL queries needed for the monitoring task and also
       handles the connections to OpenWIS and `wismon` local database. 
-    - `WisMon.py` - It performs the actual monitoring tasks and includes a
+    - `WisMon.py` - It performs the actual monitoring task and includes a
       command line interface.
     - `templates.py` - It provides helper utilities for creating the JSON files.
-      It also includes the template fo configuration file.
-    - `__main__.py` - Make `wismon` runnable as a module.
-    - `__init__.py` - It is what makes a folder to a Python module
+      It also includes the template of the configuration file.
+    - `__main__.py` - It makes `wismon` runnable as a module.
+    - `__init__.py` - It is what makes a regular folder to a Python module.
 
 
