@@ -153,24 +153,36 @@ class WisMon(object):
             monitor_json = MonitorJSON(gisc_name, now)
             logger.info('Checking status of oai-pmh server')
             # Check whether oai server is up
-            req = urllib2.urlopen('%s?verb=Identify' % self.config.get('monitor', 'oai_url'))
-            oai_status = True if 200 <= req.getcode() < 300 else False
+            oai_url = self.config.get('monitor', 'oai_url')
+            try:
+                req = urllib2.urlopen('%s?verb=Identify' % oai_url)
+                oai_status = True if 200 <= req.getcode() < 300 else False
+            except Exception:
+                oai_status = False
 
             logger.info('Checking status of openwis portal')
-            req = urllib2.urlopen(self.config.get('monitor', 'catalogue_url'))
-            catalogue_status = True if 200 <= req.getcode() < 300 else False
+            catalogue_url = self.config.get('monitor', 'catalogue_url')
+            try:
+                req = urllib2.urlopen(catalogue_url)
+                catalogue_status = True if 200 <= req.getcode() < 300 else False
+            except Exception:
+                catalogue_status = False
 
             logger.info('Checking status of dissemination server')
-            req = urllib2.urlopen(self.config.get('monitor', 'dissemination_url'))
-            dissemination_status = True if 200 <= req.getcode() < 300 else False
+            dissemination_url = self.config.get('monitor', 'dissemination_url')
+            try:
+                req = urllib2.urlopen(dissemination_url)
+                dissemination_status = True if 200 <= req.getcode() < 300 else False
+            except Exception:
+                dissemination_status = False
 
             monitor_json.metric_services(oai_pmh={'status': oai_status},
                                          catalogue={'status': catalogue_status},
                                          distribution_system={'status': dissemination_status})
 
             monitor_json.gisc_properties(
-                catalogue_url=self.config.get('monitor', 'catalogue_url'),
-                oai_url=self.config.get('monitor', 'oai_url'),
+                catalogue_url=catalogue_url,
+                oai_url=oai_url,
                 centres_inAoR_url=self.config.get('monitor', 'centres_inAoR_url'),
                 events_url=self.config.get('monitor', 'events_url'),
                 monitor_url=self.config.get('monitor', 'monitor_url'),
