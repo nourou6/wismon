@@ -100,6 +100,11 @@ repetitively, an **alias** can be created such as
 The term `wismon` will be used hereafter to refer both the script installed
 by setuptools and the alias created via manual installation.
 
+### Upgrade
+Upgrade from an existing installation of `wismon` is essentially no different
+from a fresh installation. Simply repeat what has been done for the previous
+installation to overwrite old files (uninstallation is NOT required).
+
 
 ## Usage
 In general, the `wismon` command is invoked as follows:
