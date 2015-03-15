@@ -16,6 +16,10 @@ The three JSON files are the final output from `wismon`. The tool does not
 attempt to serve the files on web. It is up to users how to expose the JSON
 files so they can be accessed through HTTP.
 
+The program has been tested and verified to work with OpenWIS version 3.12 and
+3.13. Tests are not performed with earlier versions of OpenWIS and it is likely
+that some of them are not supported (e.g. the tool does not run with OpenWIS
+3.5). 
 
 ## Installation
 Since `wismon` needs to query OpenWIS database to calculate the metrics, it
