@@ -139,8 +139,6 @@ openwis_db_port=5432
 openwis_db_user=
 openwis_db_pass=
 openwis_db_name=
-# Path to the working directory for wismon to read this config file and store output files
-wismon_working_directory=
 # Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 logging_level=INFO
 
