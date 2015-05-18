@@ -147,6 +147,12 @@ logging_level=INFO
 #
 # Name of the GISC, e.g. GISC Melbourne
 centre=
+# Name of the WIMMS set (WIS Interim Metadata Maintenance Service).
+# The authoritative copy of this set is hosted by JMA as "WIS-UNASSOCIATED".
+# So the default "WIS-UNASSOCIATED" value is often appropriate.
+# However, in case when the set has a different name (e.g. UKMO has this set named
+# as "WIS-Interim-Metadata"). The actual name should be used to replace the default value.
+WIMMS_name=WIS-UNASSOCIATED
 # Portal URL, e.g. http://wis.bom.gov.au
 catalogue_url=
 # URL of oai-pmh server, e.g. http://wis.bom.gov.au/openwis-user-portal/srv/en/oaipmh

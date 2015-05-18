@@ -24,7 +24,7 @@ def get_requirements():
 
 
 setup(name='wismon',
-      version='0.1.1',
+      version='0.1.3',
       description='openwis monitoring tool for WMO Common Dashboard',
       long_description=__doc__,
       author='Yang Wang',

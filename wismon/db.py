@@ -10,7 +10,7 @@ __all__ = ['connect_openwisdb', 'connect_wismondb',
            'sql_schema_wismon_metadata',
            'sql_query_to_openwis', 'sql_save_snapshot',
            'sql_global_stats', 'sql_amdcn_stats',
-           'sql_md_insert_modify', 'sql_md_deleted',
+           'sql_md_total_GISC_specific', 'sql_md_insert_modify', 'sql_md_deleted',
            'sql_json_get', 'sql_json_del', 'sql_save_json',
            'sql_event_add', 'sql_event_get', 'sql_event_del',
            'sql_remarks_set', 'sql_remarks_get']
@@ -115,19 +115,29 @@ WHERE %s
 GROUP BY is_stopgap
 ORDER BY is_stopgap;"""
 
+# Query for number of metadata
+sql_md_total_GISC_specific = """
+SELECT count(*)
+FROM wismon_metadata
+WHERE category LIKE 'WIS-GISC-%%' OR category = '%s'
+"""
+
 sql_md_insert_modify = """
 SELECT count(*)
 FROM wismon_metadata m
   LEFT OUTER JOIN old_wismon_metadata o
     ON m.id = o.id
-WHERE o.id IS NULL OR m.localimportdate > o.localimportdate;"""
+WHERE (o.id IS NULL OR m.localimportdate > o.localimportdate)
+AND (m.category like 'WIS-GISC-%%' OR m.category = '%s')
+"""
 
 sql_md_deleted = """
 SELECT count(*)
 FROM old_wismon_metadata o
   LEFT OUTER JOIN wismon_metadata m
     ON o.id = m.id
-WHERE m.id IS NULL;"""
+WHERE m.id IS NULL
+AND (o.category LIKE 'WIS-GISC-%%' OR o.category = '%s')"""
 
 sql_json_get = """
 SELECT id, monitor_json, centres_json, events_json

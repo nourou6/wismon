@@ -10,7 +10,7 @@ All datetime values must conform to ISO 8601.
 import sys
 import os
 from datetime import datetime
-from ConfigParser import ConfigParser
+from ConfigParser import ConfigParser, NoOptionError
 import urllib2
 import json
 import logging
@@ -107,21 +107,26 @@ class WisMon(object):
 
             logger.info('Querying for global metadata stats')
             qrs_concrete = qrs_draft = None
+            # Calculate metadata stats by grouping as draft and non-draft
             for row in cursor.execute(sql_global_stats).fetchall():
-                if row[3] == 0:
+                if row[3] == 0:  # this is the non-draft (0 is false) row
                     qrs_concrete = row
                 else:
                     qrs_draft = row
+            # In theory, both draft and non-draft stats could be null if no such metadata available in catalogue
+            # If draft exists
             if qrs_draft:
                 n_uniq_products_draft, n_products_draft, size_cache_draft, _ = qrs_draft
-            else:
+            else:  # otherwise set draft related stats to zero
                 n_uniq_products_draft = n_products_draft = size_cache_draft = 0
+            # If non-draft exists
             if qrs_concrete:
+                # Number of total metadata are draft plus non-draft
                 n_uniq_products = n_uniq_products_draft + qrs_concrete[0]
                 n_products = n_products_draft + qrs_concrete[1]
                 size_cache = size_cache_draft + qrs_concrete[2]
-            else:
-                n_uniq_products = n_products = size_cache = 0
+            else:  # if no non-draft available, stats of total is the same as stats of draft
+                n_uniq_products = n_products = size_cache = n_uniq_products_draft, n_products_draft, size_cache_draft
 
             # centres.json
             logger.info('Querying for AMDCN metadata stats')
@@ -195,13 +200,29 @@ class WisMon(object):
             if rmdcn_stats_url:
                 monitor_json.metrics_rmdcn(rmdcn_stats_url)
 
-            monitor_json.metrics_catalogue(number_of_records=n_uniq_products)
+            logger.info('Counting number of records from GISC-specific sets (WIS-GISC-CITYNAME + WIMMS)')
+            # Try read the category name for WIMMS set
+            try:
+                wimms_name = self.config.get('monitor', 'WIMMS_name').strip()
+            except NoOptionError:
+                wimms_name = ''
+
+            # An empty WIMMS name acts like a dummy for the query
+            _sql = sql_md_total_GISC_specific % wimms_name
+
+            qrs = cursor.execute(_sql)
+            monitor_json.metrics_catalogue(number_of_records=qrs.fetchone()[0])
+
+            # If stats from previous day exists, we can calculate the traffic.
+            # These stats also only count GISC specific sets and WIMMS
             if not first_run:
                 logger.info('Comparing for new and modified metadata')
-                qrs = cursor.execute(sql_md_insert_modify)
+                _sql = sql_md_insert_modify % wimms_name
+                qrs = cursor.execute(_sql)
                 n_insert_modify = qrs.fetchone()[0]
                 logger.info('Comparing for deleted metadata')
-                qrs = cursor.execute(sql_md_deleted)
+                _sql = sql_md_deleted % wimms_name
+                qrs = cursor.execute(_sql)
                 n_delete = qrs.fetchone()[0]
 
                 monitor_json.metrics_catalogue(number_of_changes_insert_modify=n_insert_modify,
