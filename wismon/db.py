@@ -29,7 +29,8 @@ CREATE TABLE IF NOT EXISTS wismon_metadata (
     createdate datetime NOT NULL,
     owner varchar(255),
     timestamp datetime DEFAULT CURRENT_TIMESTAMP
-);"""
+);
+"""
 
 schema_wismon_rest = """
 -- Events
@@ -56,6 +57,20 @@ CREATE TABLE IF NOT EXISTS wismon_json (
     monitor_json text NOT NULL,
     centres_json text NOT NULL,
     events_json text NOT NULL,
+    timestamp datetime DEFAULT CURRENT_TIMESTAMP
+);
+
+-- metadata snapshot from previous day
+CREATE TABLE IF NOT EXISTS old_wismon_metadata (
+    id integer NOT NULL PRIMARY KEY,
+    uuid varchar(255) NOT NULL UNIQUE,
+    localimportdate datetime NOT NULL,
+    category varchar(32),
+    n_mapped_files integer NOT NULL,
+    cache_size_bytes integer NOT NULL,
+    is_stopgap bool NOT NULL,
+    createdate datetime NOT NULL,
+    owner varchar(255),
     timestamp datetime DEFAULT CURRENT_TIMESTAMP
 );
 

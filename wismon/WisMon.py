@@ -15,7 +15,6 @@ import urllib2
 import json
 import logging
 import logging.handlers
-from sqlite3 import OperationalError
 
 from .db import *
 from .templates import MonitorJSON, CentresJSON, EventsJSON, CONFIG_TEMPLATE
@@ -88,12 +87,9 @@ class WisMon(object):
                 if force_regen:
                     logger.info('Re-generate JSON files for date %s' % date_now)
                     cursor.execute(sql_json_del, (date_now, ))
-                    cursor.execute('DROP TABLE IF EXISTS wismon_metadata;')
-                    try:  # In case the old table does not exist
-                        cursor.execute('ALTER TABLE old_wismon_metadata RENAME TO wismon_metadata;')
-                    except OperationalError:
-                        cursor.execute(sql_schema_wismon_metadata)
                     cursor.execute('DELETE FROM wismon_md_breakdown WHERE date = ?', (date_now,))
+                    cursor.executescript('DROP TABLE IF EXISTS wismon_metadata;\n' +
+                                         'ALTER TABLE old_wismon_metadata RENAME TO wismon_metadata;\n')
                 else:
                     raise WmError('JSON messages for day %s already exist' % date_now)
             else:
