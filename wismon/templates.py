@@ -180,7 +180,7 @@ contact_info_email=
 rmdcn=
 
 [centre]
-# This section is Optional. But the section header, i.e. [centre], is required.
+# This section is Optional.
 #
 # It is used to generate centres.json. An placeholder centres.json is generated
 # if no entry is provided in this section.
@@ -196,4 +196,12 @@ rmdcn=
 #   Australia=^urn:x-wmo:md:int.wmo.wis::.*(AMMC|ABRF|ADRM|APRF|AMRF)$
 #   Fiji=^urn:x-wmo:md:int.wmo.wis::.*(NFFN|NFNA)$
 #   Auckland - New Zealand=^urn:x-wmo:md:int.wmo.wis::.*NZAK$
+
+[analysis]
+# This section is Optional.
+#
+# It is to perform some statistical analysis to the snapshot of metadata catalogue.
+#
+metadata_source_breakdown=False
+
 """

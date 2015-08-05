@@ -10,11 +10,12 @@ All datetime values must conform to ISO 8601.
 import sys
 import os
 from datetime import datetime
-from ConfigParser import ConfigParser, NoOptionError
+from ConfigParser import ConfigParser, NoSectionError, NoOptionError
 import urllib2
 import json
 import logging
 import logging.handlers
+from sqlite3 import OperationalError
 
 from .db import *
 from .templates import MonitorJSON, CentresJSON, EventsJSON, CONFIG_TEMPLATE
@@ -66,22 +67,37 @@ class WisMon(object):
         except NameError:
             logger.warning('invalid logging level: %s' % level)
 
-    def json_gen(self):
+    def json_gen(self, force_regen=False):
 
         gisc_name = self.config.get('monitor', 'centre')
         now = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+        date_now = now[:10]
 
         centre_patterns = {}
-        for item in self.config.options('centre'):
-            centre_patterns[item] = self.config.get('centre', item, raw=True).split()
+        try:
+            for item in self.config.options('centre'):
+                centre_patterns[item] = self.config.get('centre', item, raw=True).split()
+        except NoSectionError:
+            pass
 
-        with connect_wismondb(self.wismon_db_file) as (conn, cursor, first_run):
+        with connect_wismondb(self.wismon_db_file) as (conn, cursor):
 
-            logger.info('Creating JSON messages for date %s' % now[:10])
             # Do nothing if JSON messages of the day already exist in database
-            qrs = cursor.execute(sql_json_get, (now[:10], ))
+            qrs = cursor.execute(sql_json_get, (date_now, ))
             if qrs.fetchall():
-                raise WmError('JSON messages for day %s already exist' % now[:10])
+                if force_regen:
+                    logger.info('Re-generate JSON files for date %s' % date_now)
+                    cursor.execute(sql_json_del, (date_now, ))
+                    cursor.execute('DROP TABLE IF EXISTS wismon_metadata;')
+                    try:  # In case the old table does not exist
+                        cursor.execute('ALTER TABLE old_wismon_metadata RENAME TO wismon_metadata;')
+                    except OperationalError:
+                        cursor.execute(sql_schema_wismon_metadata)
+                    cursor.execute('DELETE FROM wismon_md_breakdown WHERE date = ?', (date_now,))
+                else:
+                    raise WmError('JSON messages for day %s already exist' % date_now)
+            else:
+                logger.info('Creating JSON messages for date %s' % date_now)
 
             with connect_openwisdb(
                     host=self.config.get('system', 'openwis_db_host'),
@@ -94,11 +110,15 @@ class WisMon(object):
                 rows = ow_cursor.fetchall()
                 logger.info('Done')
 
-            if not first_run:  # Save data from the previous day
-                logger.info("Saving data from previous day")
-                cursor.execute("DROP TABLE IF EXISTS old_wismon_metadata;")
-                cursor.execute("ALTER TABLE wismon_metadata RENAME TO old_wismon_metadata;")
-                cursor.execute(sql_schema_wismon_metadata)
+            # Save data from the previous day
+            # TODO: Somehow the alter and create table statements have to be executed as a single
+            #       script. Otherwise, the table will not be created after the alter statement.
+            logger.info("Saving data from previous day")
+            cursor.executescript("""
+            DROP TABLE IF EXISTS old_wismon_metadata;
+            ALTER TABLE wismon_metadata RENAME TO old_wismon_metadata;
+            %s
+            """ % sql_schema_wismon_metadata)
 
             logger.info('Saving query results ...')
             cursor.executemany(sql_save_snapshot, rows)
@@ -215,21 +235,20 @@ class WisMon(object):
 
             # If stats from previous day exists, we can calculate the traffic.
             # These stats also only count GISC specific sets and WIMMS
-            if not first_run:
-                logger.info('Comparing for new and modified metadata')
-                _sql = sql_md_insert_modify % wimms_name
-                qrs = cursor.execute(_sql)
-                n_insert_modify = qrs.fetchone()[0]
-                logger.info('Comparing for deleted metadata')
-                _sql = sql_md_deleted % wimms_name
-                qrs = cursor.execute(_sql)
-                n_delete = qrs.fetchone()[0]
+            logger.info('Comparing for new and modified metadata')
+            _sql = sql_md_insert_modify % wimms_name
+            qrs = cursor.execute(_sql)
+            n_insert_modify = qrs.fetchone()[0]
+            logger.info('Comparing for deleted metadata')
+            _sql = sql_md_deleted % wimms_name
+            qrs = cursor.execute(_sql)
+            n_delete = qrs.fetchone()[0]
 
-                monitor_json.metrics_catalogue(number_of_changes_insert_modify=n_insert_modify,
-                                               number_of_changes_delete=n_delete)
+            monitor_json.metrics_catalogue(number_of_changes_insert_modify=n_insert_modify,
+                                           number_of_changes_delete=n_delete)
 
-                logger.info('Deleting data from previous day')
-                cursor.execute("DROP TABLE IF EXISTS old_wismon_metadata;")
+            # logger.info('Deleting data from previous day')
+            # cursor.execute("DROP TABLE IF EXISTS old_wismon_metadata;")
 
             monitor_json.metrics_cache(
                 number_of_products_all=n_products,
@@ -261,18 +280,22 @@ class WisMon(object):
 
             logger.info('Saving JSON messages to local database')
             cursor.execute(sql_save_json, (
-                now[:10],
+                date_now,
                 monitor_json.serialize(),
                 centres_json.serialize(),
                 events_json.serialize()
             ))
+
+            # Metadata breakdown stats
+            self.metadata_source_breakdown(cursor, date_now)
+
             conn.commit()
             return monitor_json, centres_json, events_json
             
     def json_get(self, date=None, name='monitor'):
         if date is None:
             date = datetime.utcnow().strftime('%Y-%m-%d')
-        with connect_wismondb(self.wismon_db_file) as (conn, cursor, first_run):
+        with connect_wismondb(self.wismon_db_file) as (conn, cursor):
             logger.info('Getting JSON message %s for date %s' % (name, date))
             row = cursor.execute(sql_json_get, (date, )).fetchone()
         if row:
@@ -290,7 +313,7 @@ class WisMon(object):
             raise WmError('No JSON message for date: %s' % date)
 
     def json_del(self, date):
-        with connect_wismondb(self.wismon_db_file) as (conn, cursor, _):
+        with connect_wismondb(self.wismon_db_file) as (conn, cursor):
             logger.info('Deleting JSON message for date %s' % date)
             cursor.execute(sql_json_del, (date, ))
             count = cursor.rowcount
@@ -305,7 +328,7 @@ class WisMon(object):
         except ValueError:
             raise WmError('Datetime format must conform to ISO 8601 (YYYY-MM-DDThh:mm:ssZ)')
 
-        with connect_wismondb(self.wismon_db_file) as (conn, cursor, _):
+        with connect_wismondb(self.wismon_db_file) as (conn, cursor):
             logger.info('Adding event %s' % title)
             cursor.execute(sql_event_add, (title, text, startdatetime, enddatetime))
             conn.commit()
@@ -313,7 +336,7 @@ class WisMon(object):
     def event_get(self, dt=None):
         if dt is None:
             dt = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
-        with connect_wismondb(self.wismon_db_file) as (_, cursor, _):
+        with connect_wismondb(self.wismon_db_file) as (_, cursor):
             logger.info('Getting event for datetime %s' % dt)
             rows = cursor.execute(sql_event_get, (dt, )).fetchall()
         if rows:
@@ -322,7 +345,7 @@ class WisMon(object):
             raise WmError('No event for datetime %s' % dt)
 
     def event_del(self, eid):
-        with connect_wismondb(self.wismon_db_file) as (conn, cursor, _):
+        with connect_wismondb(self.wismon_db_file) as (conn, cursor):
             logger.info('Deleting event of id %s' % eid)
             cursor.execute(sql_event_del, (eid, ))
             count = cursor.rowcount
@@ -331,19 +354,28 @@ class WisMon(object):
             raise WmError('No event of id: %s' % eid)
 
     def remarks_set(self, text):
-        with connect_wismondb(self.wismon_db_file) as (conn, cursor, _):
+        with connect_wismondb(self.wismon_db_file) as (conn, cursor):
             logger.info('Setting new remarks')
             cursor.execute(sql_remarks_set, (text, ))
             conn.commit()
 
     def remarks_get(self):
-        with connect_wismondb(self.wismon_db_file) as (conn, cursor, _):
+        with connect_wismondb(self.wismon_db_file) as (conn, cursor):
             logger.info('Getting remarks')
             row = cursor.execute(sql_remarks_get).fetchone()
         if row is not None:
             return row[0]
         else:
             raise WmError('No remarks is found')
+
+    def metadata_source_breakdown(self, cursor, date):
+        try:
+            if self.config.getboolean('analysis', 'metadata_source_breakdown'):
+                logger.info('Calculating metadata source breakdown stats')
+                qstr = sql_calc_md_source_breakdown.format(date)
+                cursor.executescript(qstr)
+        except (NoSectionError, NoOptionError):
+            pass
 
     @staticmethod
     def init_working_directory(working_directory):
@@ -387,6 +419,9 @@ def main():
 
     json_gen_parser = subparsers.add_parser('json-gen',
                                             help='generate the JSON files for WIS monitoring')
+    json_gen_parser.add_argument('-f', '--force-regen',
+                                 action='store_true',
+                                 help='force re-generation of the JSON files')
     json_gen_parser.add_argument('-v', '--verbose',
                                  action='store_true',
                                  help='be more chatty')
@@ -459,11 +494,11 @@ def main():
         wismon = WisMon(ns.working_directory)
 
         if ns.sub_command == 'json-gen':
-            monitor, centres, events = wismon.json_gen()
+            monitor, centres, events = wismon.json_gen(force_regen=ns.force_regen)
             if ns.verbose:
-                print json.dumps(monitor, indent=4)
-                print json.dumps(centres, indent=4)
-                print json.dumps(events, indent=4)
+                print json.dumps(monitor.serialize(), indent=4)
+                print json.dumps(centres.serialize(), indent=4)
+                print json.dumps(events.serialize(), indent=4)
 
         elif ns.sub_command == 'json-get':
             msg = wismon.json_get(ns.date, ns.name)

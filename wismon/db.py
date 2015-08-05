@@ -13,11 +13,12 @@ __all__ = ['connect_openwisdb', 'connect_wismondb',
            'sql_md_total_GISC_specific', 'sql_md_insert_modify', 'sql_md_deleted',
            'sql_json_get', 'sql_json_del', 'sql_save_json',
            'sql_event_add', 'sql_event_get', 'sql_event_del',
-           'sql_remarks_set', 'sql_remarks_get']
+           'sql_remarks_set', 'sql_remarks_get',
+           'sql_calc_md_source_breakdown']
 
 
 sql_schema_wismon_metadata = """
-CREATE TABLE wismon_metadata (
+CREATE TABLE IF NOT EXISTS wismon_metadata (
     id integer NOT NULL PRIMARY KEY,
     uuid varchar(255) NOT NULL UNIQUE,
     localimportdate datetime NOT NULL,
@@ -32,7 +33,7 @@ CREATE TABLE wismon_metadata (
 
 schema_wismon_rest = """
 -- Events
-CREATE TABLE wismon_events (
+CREATE TABLE IF NOT EXISTS wismon_events (
     id integer NOT NULL PRIMARY KEY,
     title varchar(255) NOT NULL,
     text text,
@@ -42,21 +43,32 @@ CREATE TABLE wismon_events (
 );
 
 -- Remarks
-CREATE TABLE wismon_remarks (
+CREATE TABLE IF NOT EXISTS wismon_remarks (
     id integer NOT NULL PRIMARY KEY,
     text text NOT NULL,
     timestamp datetime DEFAULT CURRENT_TIMESTAMP
 );
 
 -- JSON messages
-CREATE TABLE wismon_json (
+CREATE TABLE IF NOT EXISTS wismon_json (
     id integer NOT NULL PRIMARY KEY,
     date date NOT NULL,
     monitor_json text NOT NULL,
     centres_json text NOT NULL,
     events_json text NOT NULL,
     timestamp datetime DEFAULT CURRENT_TIMESTAMP
-);"""
+);
+
+-- Metadata source breakdown
+CREATE TABLE IF NOT EXISTS wismon_md_breakdown (
+    id integer NOT NULL PRIMARY KEY,
+    date NOT NULL,
+    type varchar(10) NOT NULL,
+    key varchar(10) NOT NULL,
+    n_mapped_files integer NOT NULL,
+    cache_size_bytes integer NOT NULL
+);
+"""
 
 sql_query_to_openwis = """
 SELECT
@@ -177,6 +189,31 @@ WHERE enddatetime >= ?;"""
 sql_event_del = """
 DELETE FROM wismon_events WHERE id = ?;"""
 
+sql_calc_md_source_breakdown = """
+-- Create the temp table for further analysis
+CREATE TEMP TABLE wismon_gts_md AS
+SELECT substr(uuid, 27, 10) AS TTAAiiCCCC, n_mapped_files, cache_size_bytes FROM wismon_metadata
+WHERE uuid REGEXP 'urn:x-wmo:md:int.wmo.wis::[A-Z]{{4}}[0-9]{{2}}[A-Z]{{4}}';
+
+INSERT INTO wismon_md_breakdown (date, type, key, n_mapped_files, cache_size_bytes)
+SELECT
+  '{0}' as date,
+  'TT' as type,
+  substr(TTAAiiCCCC, 1, 2) as key,
+  sum(n_mapped_files) as n_mapped_files,
+  sum(cache_size_bytes) as cache_size_bytes
+FROM wismon_gts_md
+GROUP BY substr(TTAAiiCCCC, 1, 2)
+UNION
+SELECT
+  '{0}' as date,
+  'C4' as type,
+  substr(TTAAiiCCCC, 7, 4) as key,
+  sum(n_mapped_files) as n_mapped_files,
+  sum(cache_size_bytes) as cache_size_bytes
+FROM wismon_gts_md
+GROUP BY substr(TTAAiiCCCC, 1, 2);
+"""
 
 def regexp(expr, item):
     pattern = re.compile(expr, re.IGNORECASE)
@@ -187,22 +224,21 @@ def regexp(expr, item):
 def connect_wismondb(wismon_db_file):
     logger = logging.getLogger('wismon')
 
-    first_run = not os.path.exists(wismon_db_file)
+    if not os.path.exists(wismon_db_file):
+        logger.info('Setting up new database file')
 
     logger.info('Connecting to: %s' % wismon_db_file)
     conn = lite.connect(wismon_db_file)
 
     cursor = conn.cursor()
 
-    if first_run:
-        logger.info('Setting up new database file')
-        conn.execute(sql_schema_wismon_metadata)
-        conn.executescript(schema_wismon_rest)
+    conn.execute(sql_schema_wismon_metadata)
+    conn.executescript(schema_wismon_rest)
 
     # Case-insensitive regex
     conn.create_function('REGEXP', 2, regexp)
 
-    yield conn, cursor, first_run
+    yield conn, cursor
 
     logger.info('Disconnecting from %s' % wismon_db_file)
     cursor.close()
