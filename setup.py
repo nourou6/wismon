@@ -7,6 +7,8 @@ import sys
 
 from setuptools import setup
 
+from wismon import __version__
+
 BASE_DIR = os.path.dirname(__file__)
 
 
@@ -24,7 +26,7 @@ def get_requirements():
 
 
 setup(name='wismon',
-      version='0.1.3',
+      version=__version__,
       description='openwis monitoring tool for WMO Common Dashboard',
       long_description=__doc__,
       author='Yang Wang',
