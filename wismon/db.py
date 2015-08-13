@@ -227,7 +227,7 @@ SELECT
   sum(n_mapped_files) as n_mapped_files,
   sum(cache_size_bytes) as cache_size_bytes
 FROM wismon_gts_md
-GROUP BY substr(TTAAiiCCCC, 1, 2);
+GROUP BY substr(TTAAiiCCCC, 7, 4);
 """
 
 def regexp(expr, item):
