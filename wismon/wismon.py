@@ -16,6 +16,8 @@ import json
 import logging
 import logging.handlers
 
+from sqlite3 import OperationalError
+
 from .db import *
 from .db import WisMonDB
 from .templates import MonitorJSON, CacheJSON, CentresJSON, EventsJSON
@@ -362,7 +364,13 @@ class WisMon(object):
             t.join()
 
         centres_json.to_file(os.path.join(self.json_dir, '{0}.json'.format(CENTRES_JSON_NAME)))
-        self.wismon_db.json_save(CENTRES_JSON_NAME, time0_now, centres_json)
+
+        try:
+            self.wismon_db.json_save(CENTRES_JSON_NAME, time0_now, centres_json)
+        except OperationalError as e:
+            LOGGER.warn('Database error: {}. Retry in 60 seconds'.format(e))
+            time.sleep(60)
+            self.wismon_db.json_save(CENTRES_JSON_NAME, time0_now, centres_json)
 
         if self.n_messages_retain >= 0:
             self.wismon_db.json_throttle(CENTRES_JSON_NAME, self.n_messages_retain)
